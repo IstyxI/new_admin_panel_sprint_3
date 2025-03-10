@@ -1,0 +1,56 @@
+version: '3'
+
+services:
+  service:
+    restart: always
+    depends_on:
+      movies-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      elastic:
+        condition: service_healthy
+    container_name: pg_to_es
+    build: .
+    env_file:
+      - ./.env
+
+  redis:
+    container_name: rediska
+    restart: always
+    image: redis:7.2
+
+  elastic:
+    container_name: es
+    restart: always
+    image: elasticsearch:8.16.5
+    depends_on:
+      movies-db:
+        condition: service_healthy
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - xpack.security.enabled=false
+      - USE_SSL=false
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -k http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  movies-db:
+    platform: linux/amd64
+    container_name: movies-db
+    restart: always
+    image: postgres:16
+    volumes:
+      - ./db/database_dump.sql:/docker-entrypoint-initdb.d/init.sql
+    env_file:
+      - ./.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
