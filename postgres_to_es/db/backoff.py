@@ -2,13 +2,16 @@ import logging
 import time
 from functools import wraps
 
-logging.basicConfig(
-    level=logging.INFO,
-    filename="logs.log",
-    format=(
-        '%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
-    )
-)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+log_file = 'logs.log'
+file_handler = logging.FileHandler(log_file, encoding='utf-8')
+formatter = logging.Formatter("""
+    %(asctime)s - %(name)s - %(levelname)s
+    - %(filename)s:%(lineno)d - %(message)s
+""")
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 
 def backoff(start_sleep_time=0.1, factor=2, border_sleep_time=10):
@@ -38,7 +41,7 @@ def backoff(start_sleep_time=0.1, factor=2, border_sleep_time=10):
                 try:
                     return func(*args, **kwargs)
                 except Exception as err:
-                    logging.error(
+                    logger.error(
                         f'Попытка {attempt} выполнить функцию {func.__name__},'
                         f' вызавала ошибку: {err}')
                     if delay < border_sleep_time:
@@ -64,8 +67,9 @@ def pg_backoff(start_sleep_time=25, factor=5, border_sleep_time=1):
                         return func(*args, **kwargs)
                     except Exception as err:
                         logging.error(
-                            f'Попытка {attempt + 1} выполнить функцию {func.__name__},'
-                            f' вызвала ошибку: {err}. Delay = {delay}')
+                            f'Попытка {attempt + 1} '
+                            f'выполнить функцию {func.__name__}, '
+                            f'вызвала ошибку: {err}. Delay = {delay}')
                         time.sleep(delay)
                         attempt += 1
                 else:

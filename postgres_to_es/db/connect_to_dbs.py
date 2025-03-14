@@ -1,12 +1,10 @@
-import logging
 import os
 
 import psycopg
 import redis
+from db.backoff import backoff, pg_backoff
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
-
-from db.backoff import backoff, pg_backoff
 
 load_dotenv()
 
@@ -17,30 +15,25 @@ DSL = {
     "host": os.environ.get("POSTGRES_HOST", 'movies-db'),
     "port": os.environ.get("DB_PORT", 5432),
 }
-
 ES_DSL = {
     'host': os.environ.get("ES_HOST", "localhost"),
     'port': int(os.environ.get("ES_PORT", 9200)),
     'scheme': os.environ.get("ES_SCHEME", "http"),
 }
-
-logging.basicConfig(
-    level=logging.INFO,
-    filename="logs.log",
-    format=(
-        '%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
-    )
-)
+REDIS_DSL = {
+    'host': os.environ.get('REDIS_HOST', 'rediska'),
+    'port': os.environ.get('REDIS_PORT', 6379)
+}
 
 
-@pg_backoff()
+@pg_backoff(40, 20, 1)
 def connect_to_pg():
     return psycopg.connect(**DSL)
 
 
 @backoff()
 def connect_to_redis():
-    return redis.Redis()
+    return redis.Redis(host=REDIS_DSL.get('host'), port=REDIS_DSL.get('port'))
 
 
 @backoff()

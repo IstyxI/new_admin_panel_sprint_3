@@ -1,13 +1,13 @@
 import logging
-from contextlib import closing
 import time
+from contextlib import closing
 
 import redis
-from elasticsearch.exceptions import RequestError
-
+from db.backoff import backoff
 from db.connect_to_dbs import (connect_to_elastic, connect_to_pg,
                                connect_to_redis)
 from db.es_schema import MAPPINGS, SETTINGS
+from elasticsearch.exceptions import RequestError
 from services.db_classes import ETL
 from services.state import RedisStorage, State
 
@@ -15,7 +15,8 @@ logging.basicConfig(
     level=logging.INFO,
     filename="logs.log",
     format=(
-        '%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
+        '%(asctime)s - %(name)s - %(levelname)s '
+        '- %(filename)s:%(lineno)d - %(message)s'
     )
 )
 logging.info("Логи работают")
@@ -24,7 +25,9 @@ ES_INDEX_NAME = 'movies'
 POLL_INTERVAL = 60
 
 
-def create_index(es, index_name: str, mappings: dict = None, settings: dict = None):
+@backoff()
+def create_index(es, index_name: str, mappings: dict = None,
+                 settings: dict = None):
     """Создает индекс в Elasticsearch."""
     try:
         if not es.indices.exists(index=index_name):
@@ -56,12 +59,18 @@ def main():
         while True:
             try:
                 with closing(connect_to_pg()) as pg_conn:
+                    pg_conn.autocommit = False
                     etl = ETL(pg_conn, es, ES_INDEX_NAME, state)
                     etl.etl()
                     pg_conn.commit()
                 logging.info('PostgreSQL подключение закрыто.')
             except Exception as err:
+                pg_conn.rollback()
                 logging.error(f'Ошибка в ETL цикле: {err}')
+            logging.info(
+                'Ждём POLL INTERVAL перед перезапуском цикла: '
+                f'{POLL_INTERVAL} секунд.'
+            )
             time.sleep(POLL_INTERVAL)
     except redis.exceptions.ConnectionError as e:
         logging.error(f"Ошибка подключения к Redis: {e}")
