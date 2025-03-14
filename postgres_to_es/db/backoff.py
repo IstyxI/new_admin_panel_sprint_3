@@ -4,14 +4,6 @@ from functools import wraps
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-log_file = 'logs.log'
-file_handler = logging.FileHandler(log_file, encoding='utf-8')
-formatter = logging.Formatter("""
-    %(asctime)s - %(name)s - %(levelname)s
-    - %(filename)s:%(lineno)d - %(message)s
-""")
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
 
 def backoff(start_sleep_time=0.1, factor=2, border_sleep_time=10):

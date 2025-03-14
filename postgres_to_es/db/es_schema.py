@@ -40,7 +40,6 @@ SETTINGS = {
     }
 }
 
-
 MAPPINGS = {
     "dynamic": "strict",
     "properties": {

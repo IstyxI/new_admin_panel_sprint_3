@@ -3,7 +3,6 @@ import json
 import logging
 from typing import Any, Dict, Generator, List
 
-from elasticsearch.helpers import bulk
 from psycopg import connection as _connection
 
 from .queries import main_query

@@ -1,5 +1,5 @@
 main_query = """
-    SELECT 
+    SELECT
         fw.id::text,
         fw.title,
         fw.description,
