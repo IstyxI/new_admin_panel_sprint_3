@@ -1,13 +1,9 @@
-Foodgram - проект для обмена рецептами между пользователями. Авторизованные пользователи
-могут добавлять свои рецепты, подписываться на других авторов, добавлять их рецепты в избранное,
-добавлять в покупки список ингредиентов нужных для приготовления блюда, а также скачивать этот список.
-
-## Подготовка и запуск проекта
-### Склонировать репозиторий на локальную машину:
+## Как запустить код:
+* Скопировать код:
 ```
 git clone https://github.com/IstyxI/new_admin_panel_sprint_3.git
 ```
-## Как запустить код:
+
 * Установите docker:
 ```
 sudo apt-get update
@@ -23,6 +19,7 @@ echo \
 sudo apt-get update
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
+
 * Cоздайте .env файл и впишите:
     ```
     POSTGRES_DB=database
