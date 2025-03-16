@@ -26,7 +26,7 @@ REDIS_DSL = {
 }
 
 
-@pg_backoff(40, 20, 1)
+@pg_backoff(60, 20, 1)
 def connect_to_pg():
     return psycopg.connect(**DSL)
 
