@@ -41,41 +41,52 @@ def create_index(es, index_name: str, mappings: dict = None,
             logging.info(f"Индекс '{index_name}' успешно создан.")
         else:
             logging.warning(f"Индекс '{index_name}' уже существует.")
-    except RequestError as e:
-        logging.error(f"Ошибка при создании индекса '{index_name}': {e}")
-    except Exception as e:
+    except RequestError as err:
+        logging.error(f"Ошибка при создании индекса '{index_name}': {err}")
+    except Exception as err:
         logging.error(
-            f"Неожиданная ошибка при создании индекса '{index_name}': {e}")
+            f"Неожиданная ошибка при создании индекса '{index_name}': {err}",
+            exc_info=True
+        )
 
 
 def main():
     try:
-        mappings = MAPPINGS
-        settings = SETTINGS
-        es = connect_to_elastic()
-        re = connect_to_redis()
-        state = State(RedisStorage(re))
-        create_index(es, ES_INDEX_NAME, mappings, settings)
+        @backoff()
+        def init_index():
+            with closing(connect_to_elastic()) as es:
+                create_index(es, ES_INDEX_NAME, MAPPINGS, SETTINGS)
+        init_index()
         while True:
             try:
-                with closing(connect_to_pg()) as pg_conn:
+                with closing(
+                    connect_to_pg()
+                ) as pg_conn, closing(
+                    connect_to_elastic()
+                ) as es_conn, closing(
+                    connect_to_redis()
+                ) as re_conn:
+
+                    state = State(RedisStorage(re_conn))
                     pg_conn.autocommit = False
-                    etl = ETL(pg_conn, es, ES_INDEX_NAME, state)
+                    etl = ETL(pg_conn, es_conn, ES_INDEX_NAME, state)
                     etl.etl()
                     pg_conn.commit()
                 logging.info('PostgreSQL подключение закрыто.')
             except Exception as err:
-                pg_conn.rollback()
-                logging.error(f'Ошибка в ETL цикле: {err}')
+                logging.error(
+                    f'Ошибка в ETL цикле: {err}',
+                    exc_info=True
+                )
             logging.info(
                 'Ждём POLL INTERVAL перед перезапуском цикла: '
                 f'{POLL_INTERVAL} секунд.'
             )
             time.sleep(POLL_INTERVAL)
-    except redis.exceptions.ConnectionError as e:
-        logging.error(f"Ошибка подключения к Redis: {e}")
+    except redis.exceptions.ConnectionError as err:
+        logging.error(f"Ошибка подключения к Redis: {err}")
     except Exception as err:
-        logging.error(f'Возникла не предвиденная ошибка: {err}')
+        logging.error(f'Возникла непредвиденная ошибка: {err}')
 
 
 if __name__ == "__main__":

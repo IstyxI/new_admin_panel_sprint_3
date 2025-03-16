@@ -1,6 +1,6 @@
 import abc
 from json.decoder import JSONDecodeError
-from typing import Any, AnyStr, Dict
+from typing import Any, Dict
 
 from redis import Redis
 

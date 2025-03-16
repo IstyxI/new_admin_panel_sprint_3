@@ -47,6 +47,21 @@ def backoff(start_sleep_time=0.1, factor=2, border_sleep_time=10):
 
 
 def pg_backoff(start_sleep_time=25, factor=5, border_sleep_time=1):
+    """Функция для повторного выполнения функции через некоторое время,
+    если возникла ошибка.
+    Задержка перед выполнением функции сначала убывает
+    до граничного времени ожидания (border_sleep_time),
+    потому что бд нужно время на инициализацию данных,
+    а потом возрастает на (factor) до граничного времени
+    (start_sleep_time).
+
+    Args:
+        start_sleep_time (int, optional): Стартовое время/Верх. порог задержки.
+        По умолчанию 25.
+        factor (int, optional): Слагаемое/Вычитаемое число от текущей задержки.
+        По умолчанию 5.
+        border_sleep_time (int, optional): Ниж. порог задержки. По умолчанию 1.
+    """
     def func_wrapper(func):
         @wraps(func)
         def inner(*args, **kwargs):

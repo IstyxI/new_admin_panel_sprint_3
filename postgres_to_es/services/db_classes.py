@@ -7,6 +7,7 @@ from psycopg import connection as _connection
 
 from .queries import main_query
 from .state import State
+from db.backoff import backoff
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -42,62 +43,60 @@ class ETL:
             raise TypeError("last_modified должен быть datetime")
 
         total_transformed = 0
-        query = main_query
-        self.cursor.execute(
-            query, (last_modified,)
-        )
         max_modified = last_modified
-        with self.conn.cursor() as cursor:
-            cursor.execute(query, (last_modified,))
-            while True:
-                batch = cursor.fetchmany(BATCH_SIZE)
-                if not batch:
-                    break
-                transformed_data = []
-                for row in batch:
-                    try:
-                        doc = self.transform(list(row))
-                        if doc:
-                            transformed_data.append(doc)
-                            curr_mod = doc.get('modified')
-                            if (curr_mod and curr_mod > last_modified):
-                                last_modified = curr_mod
-                        else:
-                            logger.warning("Transform вернул None.")
-                    except Exception as err:
-                        logger.error(
-                            f"Ошибка при трансформации строки: {row}: {err}",
-                            exc_info=True
-                        )
+        self.execute_query(last_modified)
+        while True:
+            batch = self.get_data()
+            if not batch:
+                break
+            transformed_data = []
+            for row in batch:
+                try:
+                    doc = self.transform(list(row))
+                    if doc:
+                        transformed_data.append(doc)
+                        curr_mod = row[6].replace(tzinfo=dt.timezone.utc)
+                        if (curr_mod and curr_mod > last_modified):
+                            last_modified = curr_mod
+                    else:
+                        logger.warning("Transform вернул None.")
+                except Exception as err:
+                    logger.error(
+                        f"Ошибка при трансформации строки:{err}",
+                        exc_info=True
+                    )
 
-                if transformed_data:
-                    try:
-                        self.load_data(transformed_data)
-                        total_transformed += len(transformed_data)
-                    except Exception as e:
-                        logger.error(
-                            f"Ошибка при загрузке данных в ElasticSearch: {e}",
-                            exc_info=True
-                        )
+            if transformed_data:
+                try:
+                    self.load_data(transformed_data)
+                    total_transformed += len(transformed_data)
+                except Exception as e:
+                    logger.error(
+                        f"Ошибка при загрузке данных в ElasticSearch: {e}",
+                        exc_info=True
+                    )
 
-                logger.info(f'Загружено {len(transformed_data)} документов')
+            logger.info(f'Загружено {len(transformed_data)} документов')
 
-            if max_modified > last_modified:
-                self.state.set_state(
-                    'last_modified', max_modified.isoformat())
-                logger.info(f"Обновлено last_modified: {max_modified}")
+        if max_modified > last_modified:
+            self.state.set_state(
+                'last_modified', max_modified.isoformat())
+            logger.info(f"Обновлено last_modified: {max_modified}")
 
         logger.info('ETL процесс завершён успешно.')
 
-    def get_data(self, cursor) -> Generator[Any, Any, Any]:
+    @backoff()
+    def get_data(self) -> Generator[Any, Any, Any]:
         """Генератор извлекающий данные из Postgres пачками по batch."""
-        while True:
-            results = cursor.fetchmany(BATCH_SIZE)
-            if not results:
-                logger.info("Данные закончились")
-                break
-            logger.info(f"Получено {len(results)} записей из PostgreSQL")
-            yield results
+        results = self.cursor.fetchmany(BATCH_SIZE)
+        logger.info(f"Получено {len(results)} записей из PostgreSQL")
+        return results
+
+    @backoff()
+    def execute_query(self, last_modified) -> None:
+        self.cursor.execute(
+            main_query, (last_modified,)
+        )
 
     def transform(self, row: List) -> Dict[str, Any]:
         """Преобразование данных для таблицы film_work.
@@ -179,6 +178,7 @@ class ETL:
             logger.error(f"Ошибка трансформации строки: {e}")
             raise
 
+    @backoff()
     def load_data(self, transformed_data: List[dict]) -> None:
         """Загружает отформатированные данные в Elastic Search.
 
@@ -218,8 +218,8 @@ class ETL:
         last_modified_str = self.state.get_state('last_modified')
         if last_modified_str:
             try:
-                return dt.datetime.fromisoformat(last_modified_str)
+                return dt.datetime.fromisoformat(
+                    last_modified_str).replace(tzinfo=dt.timezone.utc)
             except ValueError:
-                return dt.datetime.strptime(
-                    last_modified_str, "%Y-%m-%d %H:%M:%S.%f%z")
+                return dt.datetime.min.replace(tzinfo=dt.timezone.utc)
         return dt.datetime.min.replace(tzinfo=dt.timezone.utc)
