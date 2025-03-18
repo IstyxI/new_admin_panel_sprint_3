@@ -1,8 +1,8 @@
 [![Python](https://img.shields.io/badge/-Python-464646?style=flat-square&logo=Python)](https://www.python.org/)
 [![PostgreSQL](https://img.shields.io/badge/-PostgreSQL-464646?style=flat-square&logo=PostgreSQL)](https://www.postgresql.org/)
 [![docker](https://img.shields.io/badge/-Docker-464646?style=flat-square&logo=docker)](https://www.docker.com/)
-[![Redis](https://img.shields.io/badge/Redis-%23DD0031.svg?logo=redis&logoColor=white)](#)
-[![Elasticsearch](https://img.shields.io/badge/elasticsearch-%230377CC.svg?style=for-the-badge&logo=elasticsearch&logoColor=white)][#]
+[![Redis](https://img.shields.io/badge/-Redis-464646?style=flat-square&logo=redis)](https://www.redis.com/)
+[![Elasticsearch](https://img.shields.io/badge/-elasticsearch-464646?style=flat-square&logo=Elasticsearch)](https://www.Elasticsearch.com/)
 ## О сервисе:
 Сервис представляет собой реализацию ETL процесса. Данные берутся из PostgreSQL и переносятся в Elastic search. Redis используется для сохранения состояния при переносе данных.
 ## Как запустить код:
