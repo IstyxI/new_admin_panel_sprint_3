@@ -56,7 +56,7 @@ class ETL:
                     if doc:
                         transformed_data.append(doc)
                         curr_mod = row[6].replace(tzinfo=dt.timezone.utc)
-                        if (curr_mod and curr_mod > last_modified):
+                        if (curr_mod and curr_mod > max_modified):
                             last_modified = curr_mod
                     else:
                         logger.warning("Transform вернул None.")
